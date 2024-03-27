@@ -1,6 +1,4 @@
-import pandas as pd
 import json
-from iracingdataapi.client import irDataClient
 import os
 
 drivers = {
