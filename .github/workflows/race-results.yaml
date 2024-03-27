@@ -26,4 +26,4 @@ jobs:
         git config --global user.email 'action@github.com'
         git add results/*
         git commit -m "Update results" || exit 0
-        git push origin main
+        git push https://${{ secrets.GH_PAT }}@github.com/OsborneMotorsEnduranceChallenge/race-results.git main
