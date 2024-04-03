@@ -22,7 +22,7 @@ Pro Division
 21. Bradley Alvis - 30 points
 22. Mike Braun - 28 points
 
-Amateur Division
+Am Division
 1. Landon Orr - 55 points
 2. Kelvin Collado - 46 points
 3. Chris Krause - 41 points
@@ -43,3 +43,4 @@ Amateur Division
 18. Derek Fotre - 0 points - DNF
 19. Clarence Rosa - 0 points - DNF
 20. Chris Wells2 - 0 points - DNF
+
