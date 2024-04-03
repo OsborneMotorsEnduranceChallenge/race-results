@@ -2,9 +2,16 @@ import json
 import os
 from datetime import datetime, timedelta
 
-missing_drivers = []
-points_table = {i: 61 - i for i in range(1, 61)}
-drivers = {
+class RaceResultProcessor:
+    def __init__(self, data_dir='data', results_dir='results'):
+        self.data_dir = data_dir
+        self.results_dir = results_dir
+        self.drivers = self.load_drivers()
+        self.points_table = {i: 61 - i for i in range(1, 61)}
+        self.missing_drivers = []
+
+    def load_drivers(self):
+        return{
     "Jake Luther": "pro",
     "Bobby Flack": "pro",
     "Aaron Meyers": "pro",
@@ -73,113 +80,71 @@ drivers = {
     "Patrick Ripley": "am"
 }
 
-def process_race_results(filename, race_type):
-    # Load the JSON data from the file
-    with open(filename) as f:
-        data = json.load(f)
+    def did_driver_finish_race(self, driver_data):
+        return driver_data.get('reason_out') == 'Running'
 
-    pro_positions = {}
-    am_positions = {}
+    def process_race_results(self, filename):
+        race_type = self.get_race_type(filename)
+        data = self.load_json_data(filename)
 
-    # Iterate over the results
-    for driver in data['session_results'][0]['results']:
-        # Get the driver's name and position
-        driver_name = driver['display_name']
-        position = driver['finish_position']
+        positions = {'pro': {}, 'am': {}}
+        for driver in data['session_results'][0]['results']:
+            driver_name = driver['display_name']
+            if driver_name not in self.drivers:
+                self.missing_drivers.append(driver_name)
+                continue
 
-        # Check if the driver_name is in the drivers dict
-        if driver_name not in drivers:
-            missing_drivers.append(driver_name)
-        # Check the driver's division and store their position
-        division = drivers.get(driver_name)
-        if division == "pro":
-            if did_driver_finish_race(driver):
-                if race_type == "endurance":
-                    pro_positions[driver_name] = points_table[position + 1] * 2
-                else:
-                    pro_positions[driver_name] = points_table[position + 1]
-            else:
-                pro_positions[driver_name] = 0
-        elif division == "am":
-            if did_driver_finish_race(driver):
-                if race_type == "endurance":
-                    am_positions[driver_name] = points_table[position + 1] * 2
-                else:
-                    am_positions[driver_name] = points_table[position + 1]
-            else:
-                am_positions[driver_name] = 0
+            division = self.drivers[driver_name]
+            finished = self.did_driver_finish_race(driver)
+            points = self.calculate_points(driver['finish_position'], race_type, finished)
+            positions[division][driver_name] = points
 
-    # Sort the positions
-    pro_positions = sorted(pro_positions.items(), key=lambda x: x[1], reverse=True)
-    am_positions = sorted(am_positions.items(), key=lambda x: x[1], reverse=True)
+        self.write_results_file(positions, filename, data['track']['track_name'])
 
-    # Get the session ID from the filename
-    session_id = filename.split('-')[-1].split('.')[0]
+    def calculate_points(self, position, race_type, finished):
+        base_points = self.points_table[position + 1] if finished else 0
+        return base_points * 2 if race_type == "endurance" else base_points
 
-    # Get the track name
-    track_name = data['track']['track_name'].replace(" ", "-")
+    def load_json_data(self, filename):
+        with open(filename) as f:
+            return json.load(f)
 
-    # Create the output filename
-    output_filename = f"results/{session_id}-{track_name}.txt"
+    def get_race_type(self, filename):
+        data = self.load_json_data(filename)
+        start_time = data.get("start_time", "").replace("Z", "")
+        end_time = data.get("end_time", "").replace("Z", "")
 
-    # Print out the positions of each driver in their respective division
-    with open(output_filename, 'w') as file:
-        file.write("Pro Division\n")
-        for i, (driver, points) in enumerate(pro_positions, 1):
-            if points == 0:
-                file.write(f"{i}. {driver} - {points} points - DNF\n")
-            else:
-                file.write(f"{i}. {driver} - {points} points\n")
-
-        file.write("\nAmateur Division\n")
-        for i, (driver, points) in enumerate(am_positions, 1):
-            if points == 0:
-                file.write(f"{i}. {driver} - {points} points - DNF\n")
-            else:
-                file.write(f"{i}. {driver} - {points} points\n")
-
-def get_data_filenames():
-    data_dir = 'data'
-    filenames = os.listdir(data_dir)
-    return [os.path.join(data_dir, filename) for filename in filenames]
-
-def did_driver_finish_race(driver_data):
-    reason_out = driver_data.get('reason_out')
-    if reason_out == 'Running':
-        return True
-    else:
-        return False
-
-def get_race_type(filename):
-    with open(filename) as f:
-        data = json.load(f)
-
-    race_type = None
-    try:
-        start_time = data.get("start_time").replace("Z", "")
-        end_time = data.get("end_time").replace("Z", "")
         if start_time and end_time:
-            # Convert the timestamps to datetime objects
             start_time = datetime.fromisoformat(start_time)
             end_time = datetime.fromisoformat(end_time)
             race_length = end_time - start_time
-            if race_length > timedelta(hours=2):
-                race_type = "endurance"
-            else:
-                race_type = "sprint"
-    except (json.JSONDecodeError, ValueError):
-        pass
-    return race_type
+            return "endurance" if race_length > timedelta(hours=2) else "sprint"
+        return "sprint"
 
-def main():
-    filenames = get_data_filenames()
-    for filename in filenames:
-        race_type = get_race_type(filename)
-        process_race_results(filename, race_type)
-        print(race_type)
+    def write_results_file(self, positions, filename, track_name):
+        session_id = filename.split('-')[-1].split('.')[0]
+        track_name = track_name.replace(" ", "-")
+        output_filename = f"{self.results_dir}/{session_id}-{track_name}.txt"
+
+        with open(output_filename, 'w') as file:
+            for division in ['pro', 'am']:
+                file.write(f"{division.title()} Division\n")
+                sorted_positions = sorted(positions[division].items(), key=lambda x: x[1], reverse=True)
+                for i, (driver, points) in enumerate(sorted_positions, 1):
+                    status = " - DNF" if points == 0 else ""
+                    file.write(f"{i}. {driver} - {points} points{status}\n")
+                file.write("\n")
+
+    def get_data_filenames(self):
+        filenames = os.listdir(self.data_dir)
+        return [os.path.join(self.data_dir, filename) for filename in filenames]
+
+    def run(self):
+        filenames = self.get_data_filenames()
+        for filename in filenames:
+            self.process_race_results(filename)
+        print("Missing Drivers:", self.missing_drivers)
 
 if __name__ == "__main__":
-    main()
-    print("Missing Drivers:")
-    for driver in missing_drivers:
-        print(driver)
+    processor = RaceResultProcessor()
+    processor.run()
