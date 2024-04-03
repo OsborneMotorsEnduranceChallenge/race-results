@@ -1,6 +1,7 @@
 import json
 import os
 
+missing_drivers = []
 drivers = {
     "Jake Luther": "pro",
     "Bobby Flack": "pro",
@@ -22,15 +23,15 @@ drivers = {
     "Jordan D Cozzi": "pro",
     "Adam Wok Hei": "pro",
     "William Alcala": "pro",
-    "Skyler Gragg": "pro",
+    "Skyler Gragg": "am",
     "Matthew Wykoff": "pro",
-    "Daniel Ciuro": "pro",
+    "Daniel Ciuro": "am",
     "Kevin Madyda": "pro",
-    "Darryl Wineinger": "pro",
+    "Darryl Wineinger": "am",
     "Tyler Sage Anderson": "pro",
     "Will Coffey": "pro",
-    "Daniel R Hall": "am",
-    "Mitch Buenaventura": "am",
+    "Daniel R Hall": "pro",
+    "Mitch Buenaventura": "pro",
     "Tony Caicedo": "am",
     "Bob LinDell": "am",
     "Landon Orr": "am",
@@ -57,7 +58,17 @@ drivers = {
     "Clarence Rosa": "am",
     "Chris Wells2": "am",
     "Christopher Pierro": "am",
-    "Jeff Leaf": "am"
+    "Jeff Leaf": "am",
+    "Lee Kane": "am",
+    "Kevin Hayes III": "am",
+    "Logan Brink": "pro",
+    "Hector Collazo3": "pro",
+    "Keith Roycroft": "am",
+    "Christian Gritsko": "pro",
+    "Parker Merrill": "am",
+    "Chris Genore": "am",
+    "Mark Agee": "am",
+    "Patrick Ripley": "am"
 }
 
 def process_race_results(filename):
@@ -68,12 +79,17 @@ def process_race_results(filename):
     pro_positions = {}
     am_positions = {}
 
+    
+
     # Iterate over the results
     for result in data['session_results'][0]['results']:
         # Get the driver's name and position
         driver_name = result['display_name']
         position = result['finish_position']
 
+        # Check if the driver_name is in the drivers dict
+        if driver_name not in drivers:
+            missing_drivers.append(driver_name)
         # Check the driver's division and store their position
         division = drivers.get(driver_name)
         if division == "pro":
@@ -116,3 +132,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+    print("Missing Drivers:")
+    for driver in missing_drivers:
+        print(driver)
