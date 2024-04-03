@@ -27,25 +27,40 @@ class RaceResultProcessor:
         positions = {'pro': {}, 'am': {}}
         for driver in data['session_results'][0]['results']:
             driver_name = driver['display_name']
+            incidents = driver['incidents'] # Extract incidents count
+
             if driver_name not in self.drivers:
                 self.missing_drivers.append(driver_name)
                 continue
 
             division = self.drivers[driver_name]
             finished = self.did_driver_finish_race(driver)
-            points = self.calculate_points(driver['finish_position'], race_type, finished)
+            points = self.calculate_points(driver['finish_position'], race_type, finished, incidents) # Pass incidents to calculate_points
             positions[division][driver_name] = points
 
-            # Add points to the cumulative total
+            # Update cumulative points
             if driver_name not in self.cumulative_points[division]:
                 self.cumulative_points[division][driver_name] = 0
             self.cumulative_points[division][driver_name] += points
 
         self.write_results_file(positions, filename, data['track']['track_name'])
         
-    def calculate_points(self, position, race_type, finished):
-        base_points = self.points_table[position + 1] if finished else 0
-        return base_points * 2 if race_type == "endurance" else base_points
+    def calculate_points(self, position, race_type, finished, incidents):
+        # Calculate base points; points are 0 if the driver did not finish
+        base_points = self.points_table.get(position + 1, 0) if finished else 0
+        
+        # Double points for endurance races
+        if race_type == "endurance":
+            base_points *= 2
+        
+        # Add safety bonus if incidents are fewer than 8
+        if incidents < 8:
+            safety_bonus = 2 if race_type == "endurance" else 1
+        else:
+            safety_bonus = 0
+        
+        # Total points are the sum of base points and any safety bonus
+        return base_points + safety_bonus
 
     def load_json_data(self, filename):
         with open(filename) as f:
@@ -88,8 +103,7 @@ class RaceResultProcessor:
                 file.write(f"{division.title()} Division\n")
                 sorted_positions = sorted(self.cumulative_points[division].items(), key=lambda x: x[1], reverse=True)
                 for i, (driver, points) in enumerate(sorted_positions, 1):
-                    status = " - DNF" if points == 0 else ""
-                    file.write(f"{i}. {driver} - {points} points{status}\n")
+                    file.write(f"{i}. {driver} - {points} points\n")
                 file.write("\n")
 
     def run(self):
