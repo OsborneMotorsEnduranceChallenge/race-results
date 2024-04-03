@@ -1,0 +1,12 @@
+{
+  "teams": [
+    {
+      "name": "Team C",
+      "drivers": ["Driver 5", "Driver 6"]
+    },
+    {
+      "name": "Team D",
+      "drivers": ["Driver 7", "Driver 8"]
+    }
+  ]
+}

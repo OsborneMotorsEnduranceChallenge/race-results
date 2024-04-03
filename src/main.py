@@ -9,76 +9,13 @@ class RaceResultProcessor:
         self.drivers = self.load_drivers()
         self.points_table = {i: 61 - i for i in range(1, 61)}
         self.missing_drivers = []
+        # Initialize the cumulative points tracker
+        self.cumulative_points = {'pro': {}, 'am': {}}
 
     def load_drivers(self):
-        return{
-    "Jake Luther": "pro",
-    "Bobby Flack": "pro",
-    "Aaron Meyers": "pro",
-    "Darren Ruthford": "pro",
-    "Scott Rister": "pro",
-    "Justin Hall7": "pro",
-    "Nick Terrell": "pro",
-    "Thomas Clawson": "pro",
-    "Bradley Alvis": "pro",
-    "Jesse Olsen": "pro",
-    "Christopher Daniel3": "pro",
-    "Mike Braun": "pro",
-    "Patrick Cantrell": "pro",
-    "Nathan Sides": "pro",
-    "Scott Kimbrow": "pro",
-    "Andrew Gajdarik": "pro",
-    "Aubrey Cundall": "pro",
-    "Jordan D Cozzi": "pro",
-    "Adam Wok Hei": "pro",
-    "William Alcala": "pro",
-    "Skyler Gragg": "am",
-    "Matthew Wykoff": "pro",
-    "Daniel Ciuro": "am",
-    "Kevin Madyda": "pro",
-    "Darryl Wineinger": "am",
-    "Tyler Sage Anderson": "pro",
-    "Will Coffey": "pro",
-    "Daniel R Hall": "pro",
-    "Mitch Buenaventura": "pro",
-    "Tony Caicedo": "am",
-    "Bob LinDell": "am",
-    "Landon Orr": "am",
-    "Matthew Markley": "am",
-    "Kelvin Collado": "am",
-    "Richard Costanza": "am",
-    "Shane Brown3": "am",
-    "Douglas Jerum": "am",
-    "Charles Roats": "am",
-    "Kevin Hayes3": "am",
-    "Devin M Adams": "am",
-    "Derek Fotre": "am",
-    "Joseph Evers": "am",
-    "Thomas Pereira": "am",
-    "Michael Doyon": "am",
-    "Chris Krause": "am",
-    "Charles Cappelli": "am",
-    "Jarod Pettit": "am",
-    "Carsten Path": "am",
-    "Keith Gwinnup": "am",
-    "Fen Acinni": "am",
-    "Patricio Montivero": "am",
-    "Mauricio Marquez-Ramos": "am",
-    "Clarence Rosa": "am",
-    "Chris Wells2": "am",
-    "Christopher Pierro": "am",
-    "Jeff Leaf": "am",
-    "Lee Kane": "am",
-    "Kevin Hayes III": "am",
-    "Logan Brink": "pro",
-    "Hector Collazo3": "pro",
-    "Keith Roycroft": "am",
-    "Christian Gritsko": "pro",
-    "Parker Merrill": "am",
-    "Chris Genore": "am",
-    "Mark Agee": "am",
-    "Patrick Ripley": "am"
-}
+        with open('driver-data/drivers.json') as f:
+            drivers_data = json.load(f)
+        return drivers_data
 
     def did_driver_finish_race(self, driver_data):
         return driver_data.get('reason_out') == 'Running'
@@ -99,8 +36,13 @@ class RaceResultProcessor:
             points = self.calculate_points(driver['finish_position'], race_type, finished)
             positions[division][driver_name] = points
 
-        self.write_results_file(positions, filename, data['track']['track_name'])
+            # Add points to the cumulative total
+            if driver_name not in self.cumulative_points[division]:
+                self.cumulative_points[division][driver_name] = 0
+            self.cumulative_points[division][driver_name] += points
 
+        self.write_results_file(positions, filename, data['track']['track_name'])
+        
     def calculate_points(self, position, race_type, finished):
         base_points = self.points_table[position + 1] if finished else 0
         return base_points * 2 if race_type == "endurance" else base_points
@@ -139,11 +81,24 @@ class RaceResultProcessor:
         filenames = os.listdir(self.data_dir)
         return [os.path.join(self.data_dir, filename) for filename in filenames]
 
+    def write_total_standings(self):
+        with open(f"{self.results_dir}/standings.txt", 'w') as file:
+            file.write("Total Standings:\n")
+            for division in ['pro', 'am']:
+                file.write(f"{division.title()} Division\n")
+                sorted_positions = sorted(self.cumulative_points[division].items(), key=lambda x: x[1], reverse=True)
+                for i, (driver, points) in enumerate(sorted_positions, 1):
+                    status = " - DNF" if points == 0 else ""
+                    file.write(f"{i}. {driver} - {points} points{status}\n")
+                file.write("\n")
+
     def run(self):
         filenames = self.get_data_filenames()
         for filename in filenames:
             self.process_race_results(filename)
         print("Missing Drivers:", self.missing_drivers)
+        # Write total standings to a file
+        self.write_total_standings()
 
 if __name__ == "__main__":
     processor = RaceResultProcessor()
